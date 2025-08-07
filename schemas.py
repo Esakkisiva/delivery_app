@@ -1,6 +1,6 @@
-# schemas.py (Updated for Pydantic v2)
+# schemas.py (Compatible with Pydantic v1)
 
-from pydantic import BaseModel, Field, field_validator # Use field_validator for v2
+from pydantic import BaseModel, validator, Field
 from datetime import datetime
 import re
 
@@ -9,9 +9,8 @@ import re
 class PhoneNumberMixin(BaseModel):
     phone_number: str = Field(..., description="User's phone number, international format preferred.")
 
-    @field_validator('phone_number')
-    @classmethod
-    def validate_and_clean_phone_number(cls, v: str) -> str:
+    @validator('phone_number')
+    def validate_and_clean_phone_number(cls, v):
         phone = re.sub(r'[^\d\+]', '', v)
         if not re.match(r'^\+?\d{10,15}$', phone):
             raise ValueError('Invalid phone number format.')
@@ -25,9 +24,8 @@ class OTPRequest(PhoneNumberMixin):
 class OTPVerify(PhoneNumberMixin):
     otp: str = Field(..., min_length=6, max_length=6, description="The 6-digit OTP.")
 
-    @field_validator('otp')
-    @classmethod
-    def validate_otp_format(cls, v: str) -> str:
+    @validator('otp')
+    def validate_otp_format(cls, v):
         if not v.isdigit():
             raise ValueError('OTP must contain only digits.')
         return v
@@ -49,5 +47,5 @@ class UserResponse(BaseModel):
     created_at: datetime
     
     class Config:
-        # Use from_attributes for Pydantic v2
-        from_attributes = True
+        # Use orm_mode for Pydantic v1
+        orm_mode = True
