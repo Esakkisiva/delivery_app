@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-import models
-import schemas
+from models.auth_models import User
+from models.address_models import Address
+from schemas.address_schemas import AddressCreate, AddressUpdate, AddressResponse
 import auth
 from database import get_db
 
@@ -10,9 +11,9 @@ router = APIRouter(
     tags=["Addresses"]
 )
 
-@router.post("/", response_model=schemas.AddressResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=AddressResponse, status_code=status.HTTP_201_CREATED)
 def create_address_for_current_user(
-    address: schemas.AddressCreate,
+    address: AddressCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(auth.get_current_user)
 ):
@@ -20,18 +21,18 @@ def create_address_for_current_user(
     Create a new address for the currently authenticated user.
     """
     phone_number = current_user.get("phone_number")
-    user = db.query(models.User).filter(models.User.phone_number == phone_number).first()
+    user = db.query(User).filter(User.phone_number == phone_number).first()
     
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Authenticated user not found in database")
 
-    db_address = models.Address(**address.dict(), owner_id=user.id)
+    db_address = Address(**address.dict(), owner_id=user.id)
     db.add(db_address)
     db.commit()
     db.refresh(db_address)
     return db_address
 
-@router.get("/", response_model=list[schemas.AddressResponse])
+@router.get("/", response_model=list[AddressResponse])
 def get_addresses_for_current_user(
     db: Session = Depends(get_db),
     current_user: dict = Depends(auth.get_current_user)
@@ -40,17 +41,17 @@ def get_addresses_for_current_user(
     Get all addresses belonging to the currently authenticated user.
     """
     phone_number = current_user.get("phone_number")
-    user = db.query(models.User).filter(models.User.phone_number == phone_number).first()
+    user = db.query(User).filter(User.phone_number == phone_number).first()
     
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    return db.query(models.Address).filter(models.Address.owner_id == user.id).all()
+    return db.query(Address).filter(Address.owner_id == user.id).all()
 
-@router.put("/{address_id}", response_model=schemas.AddressResponse)
+@router.put("/{address_id}", response_model=AddressResponse)
 def update_user_address(
     address_id: str,
-    update_data: schemas.AddressUpdate,
+    update_data: AddressUpdate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(auth.get_current_user)
 ):
@@ -58,9 +59,9 @@ def update_user_address(
     Update an address belonging to the currently authenticated user.
     """
     phone_number = current_user.get("phone_number")
-    user = db.query(models.User).filter(models.User.phone_number == phone_number).first()
+    user = db.query(User).filter(User.phone_number == phone_number).first()
     
-    address = db.query(models.Address).filter(models.Address.id == address_id).first()
+    address = db.query(Address).filter(Address.id == address_id).first()
 
     if not address or address.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found")
@@ -82,9 +83,9 @@ def delete_user_address(
     Delete an address belonging to the currently authenticated user.
     """
     phone_number = current_user.get("phone_number")
-    user = db.query(models.User).filter(models.User.phone_number == phone_number).first()
+    user = db.query(User).filter(User.phone_number == phone_number).first()
 
-    address = db.query(models.Address).filter(models.Address.id == address_id).first()
+    address = db.query(Address).filter(Address.id == address_id).first()
 
     if not address or address.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found")
