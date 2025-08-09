@@ -31,6 +31,7 @@ __pycache__/
 # Testing scripts and guides (not needed in production)
 test_endpoints.py
 test_with_data.py
+quick_test.py
 MANUAL_TESTING_GUIDE.md
 README_ORDER_DELIVERY.md
 SAMPLE_DATA_SUMMARY.md
