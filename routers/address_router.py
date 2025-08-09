@@ -26,7 +26,7 @@ def create_address_for_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Authenticated user not found in database")
 
-    db_address = Address(**address.dict(), owner_id=user.id)
+    db_address = Address(**address.model_dump(), owner_id=user.id)
     db.add(db_address)
     db.commit()
     db.refresh(db_address)
@@ -66,7 +66,7 @@ def update_user_address(
     if not address or address.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Address not found")
 
-    for key, value in update_data.dict(exclude_unset=True).items():
+    for key, value in update_data.model_dump(exclude_unset=True).items():
         setattr(address, key, value)
 
     db.commit()

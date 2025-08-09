@@ -1,122 +1,131 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-
-# Import local modules
-from models.auth_models import User, OTP
-from schemas.auth_schemas import OTPRequest, OTPVerify, LoginResponse, Token, UserResponse
 import auth
+from models.auth_models import User, OTP
+from schemas.auth_schemas import OTPRequest, OTPVerifyRequest, AuthResponse
 from database import get_db
 from sms_service import sms_service
+from config import settings
+import security
 
 router = APIRouter(
-    prefix="/auth",
+    prefix="/api/auth",
     tags=["Authentication"]
 )
 
-# --- Reusable Helper Function ---
-def _create_and_send_otp(phone_number: str, db: Session) -> bool:
-    """Generates, stores, and sends an OTP, returning success status."""
+@router.post("/send-otp", status_code=status.HTTP_200_OK)
+async def send_otp(request: OTPRequest, db: Session = Depends(get_db)):
+    """Send OTP to phone number"""
+    
+    # Generate OTP
     otp_code = auth.generate_otp()
-    otp_hash = auth.hash_otp(otp_code)
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
-
-    # Remove old unused OTPs for this phone
-    db.query(OTP).filter(
-        OTP.phone_number == phone_number,
-        OTP.is_used == False
-    ).delete()
-
-    # Store the new OTP
+    hashed_otp = auth.hash_otp(otp_code)
+    
+    # Calculate expiry time
+    expire_time = datetime.now(timezone.utc) + timedelta(minutes=settings.OTP_EXPIRE_MINUTES)
+    
+    # Store OTP in database
     db_otp = OTP(
-        phone_number=phone_number,
-        hashed_otp=otp_hash,
-        expires_at=expires_at
+        phone_number=request.phone_number,
+        hashed_otp=hashed_otp,
+        expires_at=expire_time
     )
     db.add(db_otp)
     db.commit()
-
-    # Send OTP via SMS
-    return sms_service.send_otp(phone_number=phone_number, otp=otp_code)
-
-@router.post("/login", response_model=LoginResponse)
-async def login(request: OTPRequest, db: Session = Depends(get_db)):
-    """Finds or creates a user, then sends an OTP."""
-    user = db.query(User).filter(User.phone_number == request.phone_number).first()
-    if not user:
-        user = User(phone_number=request.phone_number)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-    if not _create_and_send_otp(request.phone_number, db):
+    
+    # Send SMS
+    success = sms_service.send_otp(request.phone_number, otp_code)
+    
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send OTP. Please try again later."
         )
+    
+    return {"message": "OTP sent successfully", "expires_in_minutes": settings.OTP_EXPIRE_MINUTES}
 
-    return LoginResponse(
-        message="OTP sent successfully to your phone number",
-        phone_number=request.phone_number
-    )
-
-@router.post("/verify-otp", response_model=Token)
-async def verify_otp_endpoint(request: OTPVerify, db: Session = Depends(get_db)):
-    """Verifies an OTP and returns a JWT access token."""
+@router.post("/verify-otp", response_model=AuthResponse)
+async def verify_otp(request: OTPVerifyRequest, db: Session = Depends(get_db)):
+    """Verify OTP and return JWT tokens"""
+    
+    # Find the most recent valid OTP for this phone number
     otp_record = db.query(OTP).filter(
         OTP.phone_number == request.phone_number,
         OTP.is_used == False,
         OTP.expires_at > datetime.now(timezone.utc)
     ).order_by(OTP.created_at.desc()).first()
-
-    if not otp_record or not auth.verify_otp(request.otp, otp_record.hashed_otp):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP.")
-
+    
+    if not otp_record:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP"
+        )
+    
+    # Verify OTP
+    if not auth.verify_otp(request.otp, otp_record.hashed_otp):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OTP"
+        )
+    
+    # Mark OTP as used
     otp_record.is_used = True
-
-    user = db.query(User).filter(User.phone_number == request.phone_number).first()
-    if user:
-        user.is_verified = True
-
-    db.commit()
-
-    # Create access token
-    access_token = auth.create_access_token(data={"sub": request.phone_number})
-
-    # Send welcome message
-    sms_service.send_welcome_message(request.phone_number)
-
-    return Token(access_token=access_token, token_type="bearer")
-
-@router.post("/resend-otp", response_model=LoginResponse)
-async def resend_otp(request: OTPRequest, db: Session = Depends(get_db)):
-    """Resends an OTP to a registered phone number."""
+    
+    # Create or get user
     user = db.query(User).filter(User.phone_number == request.phone_number).first()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Phone number not registered. Please use the login endpoint first."
-        )
-
-    if not _create_and_send_otp(request.phone_number, db):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send OTP. Please try again later."
-        )
-
-    return LoginResponse(
-        message="OTP resent successfully to your phone number",
-        phone_number=request.phone_number
+        user = User(phone_number=request.phone_number, is_verified=True)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        # Send welcome message for new users
+        sms_service.send_welcome_message(request.phone_number)
+    else:
+        user.is_verified = True
+        user.updated_at = datetime.now(timezone.utc)
+    
+    db.commit()
+    
+    # Generate JWT tokens
+    access_token = security.create_access_token(data={"sub": str(user.id)})
+    refresh_token = security.create_refresh_token(data={"sub": str(user.id)})
+    
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        token_type="bearer",
+        user_id=user.id,
+        phone_number=user.phone_number,
+        is_verified=user.is_verified
     )
 
-@router.get("/me", response_model=UserResponse)
-async def get_current_user_info(
-    current_user: dict = Depends(auth.get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Returns current authenticated user's information."""
-    phone_number = current_user.get("phone_number")
-    user = db.query(User).filter(User.phone_number == phone_number).first()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return user
+@router.post("/refresh-token", response_model=dict)
+async def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
+    """Refresh access token using refresh token"""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = security.jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except security.JWTError:
+        raise credentials_exception
+    
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if user is None:
+        raise credentials_exception
+    
+    # Generate new access token
+    access_token = security.create_access_token(data={"sub": str(user.id)})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }

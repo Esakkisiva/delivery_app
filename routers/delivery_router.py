@@ -39,7 +39,7 @@ async def create_delivery_agent(
             detail="Delivery agent with this phone number already exists"
         )
     
-    db_agent = DeliveryAgent(**agent_data.dict())
+    db_agent = DeliveryAgent(**agent_data.model_dump())
     db.add(db_agent)
     db.commit()
     db.refresh(db_agent)
@@ -113,7 +113,7 @@ async def update_delivery_agent(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Delivery agent not found")
     
     # Update agent fields
-    update_data = agent_update.dict(exclude_unset=True)
+    update_data = agent_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(agent, field, value)
     

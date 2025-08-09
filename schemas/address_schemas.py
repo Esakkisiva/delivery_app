@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, validator, ConfigDict
 from datetime import datetime
 from typing import Optional
 import re
@@ -14,15 +14,13 @@ class AddressBase(BaseModel):
     town_city: Optional[str] = None
     state: Optional[str] = None
 
-    @field_validator('mobile_number')
-    @classmethod
+    @validator('mobile_number')
     def validate_mobile(cls, v: str) -> str:
         if v and not re.match(r'^\d{10}$', v):
             raise ValueError('Mobile number must be exactly 10 digits')
         return v
 
-    @field_validator('pincode')
-    @classmethod
+    @validator('pincode')
     def validate_pincode(cls, v: str) -> str:
         if v and not re.match(r'^\d{6}$', v):
             raise ValueError('Pincode must be exactly 6 digits')
@@ -46,5 +44,5 @@ class AddressResponse(AddressBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    # This is the single, correct way to configure in Pydantic V2
+    model_config = ConfigDict(from_attributes=True)

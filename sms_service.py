@@ -1,12 +1,9 @@
-# sms_service.py
+# /home/asus/projects/delivery-management/sms_service.py
 
 from twilio.rest import Client
-import os
 import logging
 from twilio.base.exceptions import TwilioRestException
-from dotenv import load_dotenv # <-- 1. ADD THIS IMPORT
-
-load_dotenv() # <-- 2. ADD THIS LINE TO LOAD THE .ENV FILE
+from config import settings # Import our centralized settings object
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,10 +11,12 @@ logger = logging.getLogger(__name__)
 
 class SMSService:
     def __init__(self):
-        # 3. REPLACE config() WITH os.getenv() FOR ALL THREE VARIABLES
-        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.twilio_phone_number = os.getenv("TWILIO_PHONE_NUMBER")
+        # Read credentials securely from our central settings object
+        self.account_sid = settings.TWILIO_ACCOUNT_SID
+        self.auth_token = settings.TWILIO_AUTH_TOKEN
+        self.twilio_phone_number = settings.TWILIO_PHONE_NUMBER
+        
+        # This line remains the same
         self.client = Client(self.account_sid, self.auth_token)
     
     def send_otp(self, phone_number: str, otp: str) -> bool:
@@ -130,5 +129,5 @@ class SMSService:
             logger.error(f"Failed to send delivery update SMS to {customer_phone}: {str(e)}")
             return False
 
-# Create a global instance
+# The global instance remains the same
 sms_service = SMSService()

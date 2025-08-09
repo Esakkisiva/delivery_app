@@ -217,7 +217,7 @@ async def update_order(
     old_status = order.status
     
     # Update order fields
-    update_data = order_update.dict(exclude_unset=True)
+    update_data = order_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(order, field, value)
     

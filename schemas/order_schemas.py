@@ -1,4 +1,5 @@
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import List, Optional
 from enum import Enum
@@ -25,8 +26,7 @@ class OrderItemResponse(BaseModel):
     special_instructions: Optional[str]
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Order Schemas
 class OrderCreate(BaseModel):
@@ -56,14 +56,13 @@ class OrderResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     
-    # Nested relationships
+    
     customer: Optional[dict] = None
     delivery_address: Optional[dict] = None
     delivery_agent: Optional[dict] = None
     order_items: List[OrderItemResponse] = []
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class OrderListResponse(BaseModel):
     orders: List[OrderResponse]
@@ -80,5 +79,4 @@ class OrderSummary(BaseModel):
     created_at: datetime
     estimated_delivery_time: Optional[datetime]
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
