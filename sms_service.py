@@ -56,5 +56,79 @@ class SMSService:
             logger.error(f"Failed to send welcome SMS to {phone_number}: {str(e)}")
             return False
 
+    def send_order_status_sms(self, to_number: str, order_id: str, status: str, order_number: str = None) -> bool:
+        """Send order status update notification via SMS"""
+        try:
+            status_messages = {
+                "pending": "Your order has been placed and is being processed.",
+                "confirmed": "Your order has been confirmed and is being prepared.",
+                "dispatched": "Your order has been dispatched and is on its way to you.",
+                "delivered": "Your order has been delivered! Enjoy your meal!",
+                "cancelled": "Your order has been cancelled as requested."
+            }
+            
+            message_body = f"Order Update: {status_messages.get(status, f'Your order status has been updated to {status}.')}"
+            if order_number:
+                message_body += f" Order #{order_number}"
+            
+            message = self.client.messages.create(
+                body=message_body,
+                from_=self.twilio_phone_number,
+                to=to_number
+            )
+            
+            logger.info(f"Order status SMS sent to {to_number} for order {order_id}. Message SID: {message.sid}")
+            return True
+            
+        except TwilioRestException as e:
+            logger.error(f"Failed to send order status SMS to {to_number}: {str(e)}")
+            return False
+
+    def send_delivery_assignment_sms(self, agent_phone: str, order_id: str, order_number: str = None) -> bool:
+        """Send delivery assignment notification to delivery agent"""
+        try:
+            message_body = f"You have been assigned a new delivery order."
+            if order_number:
+                message_body += f" Order #{order_number}"
+            message_body += " Please check your app for details."
+            
+            message = self.client.messages.create(
+                body=message_body,
+                from_=self.twilio_phone_number,
+                to=agent_phone
+            )
+            
+            logger.info(f"Delivery assignment SMS sent to {agent_phone} for order {order_id}. Message SID: {message.sid}")
+            return True
+            
+        except TwilioRestException as e:
+            logger.error(f"Failed to send delivery assignment SMS to {agent_phone}: {str(e)}")
+            return False
+
+    def send_delivery_update_sms(self, customer_phone: str, order_id: str, status: str, order_number: str = None) -> bool:
+        """Send delivery status update to customer"""
+        try:
+            delivery_messages = {
+                "dispatched": "Your order is on its way! Our delivery agent is heading to you.",
+                "delivered": "Your order has been delivered successfully! Enjoy your meal!"
+            }
+            
+            message_body = f"Delivery Update: {delivery_messages.get(status, f'Delivery status: {status}')}"
+            if order_number:
+                message_body += f" Order #{order_number}"
+            
+            message = self.client.messages.create(
+                body=message_body,
+                from_=self.twilio_phone_number,
+                to=customer_phone
+            )
+            
+            logger.info(f"Delivery update SMS sent to {customer_phone} for order {order_id}. Message SID: {message.sid}")
+            return True
+            
+        except TwilioRestException as e:
+            logger.error(f"Failed to send delivery update SMS to {customer_phone}: {str(e)}")
+            return False
+
 # Create a global instance
 sms_service = SMSService()
