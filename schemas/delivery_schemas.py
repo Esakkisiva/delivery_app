@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict, validatorgit 
+from pydantic import BaseModel, Field, ConfigDict, field_validator 
 from datetime import datetime
 from typing import Optional
 from enum import Enum
@@ -18,13 +18,15 @@ class DeliveryAgentCreate(BaseModel):
     vehicle_type: Optional[str] = Field(None, description="Type of vehicle (bike, car, etc.)")
     vehicle_number: Optional[str] = Field(None, description="Vehicle registration number")
 
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone(cls, v: str) -> str:
         if not re.match(r'^\d{10}$', v):
             raise ValueError('Phone number must be exactly 10 digits')
         return v
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v: Optional[str]) -> Optional[str]:
         if v and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
             raise ValueError('Invalid email format')
@@ -41,13 +43,15 @@ class DeliveryAgentUpdate(BaseModel):
     vehicle_number: Optional[str] = Field(None)
     is_active: Optional[bool] = Field(None)
 
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone(cls, v: Optional[str]) -> Optional[str]:
         if v and not re.match(r'^\d{10}$', v):
             raise ValueError('Phone number must be exactly 10 digits')
         return v
 
-    @validator('email')
+    @field_validator('email')
+    @classmethod
     def validate_email(cls, v: Optional[str]) -> Optional[str]:
         if v and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
             raise ValueError('Invalid email format')
