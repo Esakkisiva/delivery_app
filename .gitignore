@@ -103,3 +103,9 @@ Thumbs.db
 *.bak
 *.backup
 *.old
+# Ignore unnecessary test and reset files
+test_auth.py
+reset_db_simple.py
+reset_database.py
+fix_database.py
+delivery_management_api.postman_collection.json
