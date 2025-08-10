@@ -10,7 +10,7 @@ from models.auth_models import User
 from config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/verify-otp")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/verify-otp")
 
 def hash_otp(otp: str) -> str:
     """Hash OTP using passlib context"""

@@ -23,8 +23,8 @@ router = APIRouter(
 
 def generate_order_number() -> str:
     """Generate a unique order number"""
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    random_suffix = str(uuid.uuid4())[:8]
+    timestamp = datetime.now().strftime("%Y%m%d%H%M")
+    random_suffix = str(uuid.uuid4())[:3]
     return f"ORD{timestamp}{random_suffix}"
 
 def calculate_order_totals(order_items: List[OrderItemCreate], db: Session) -> tuple[float, float, float, float]:
@@ -53,6 +53,30 @@ def calculate_order_totals(order_items: List[OrderItemCreate], db: Session) -> t
     
     return subtotal, tax_amount, delivery_fee, total_amount
 
+def build_order_response_data(order: Order) -> dict:
+    """Helper function to build order response data without problematic relationships"""
+    return {
+        "id": order.id,
+        "order_number": order.order_number,
+        "customer_id": order.customer_id,
+        "delivery_address_id": order.delivery_address_id,
+        "delivery_agent_id": order.delivery_agent_id,
+        "status": order.status,
+        "total_amount": order.total_amount,
+        "delivery_fee": order.delivery_fee,
+        "tax_amount": order.tax_amount,
+        "subtotal": order.subtotal,
+        "estimated_delivery_time": order.estimated_delivery_time,
+        "actual_delivery_time": order.actual_delivery_time,
+        "delivery_instructions": order.delivery_instructions,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
+        "delivery_address": None,  # We'll handle this separately if needed
+        "customer": None,  # We'll handle this separately if needed
+        "delivery_agent": None,  # We'll handle this separately if needed
+        "order_items": [OrderItemResponse.model_validate(item) for item in order.order_items]
+    }
+
 @router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(
     order_data: OrderCreate,
@@ -64,7 +88,10 @@ async def create_order(
     user = db.query(User).filter(User.phone_number == phone_number).first()
     
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
     
     # Verify delivery address belongs to user
     address = db.query(Address).filter(
@@ -120,14 +147,17 @@ async def create_order(
     db.refresh(db_order)
     
     # Send order confirmation SMS
-    sms_service.send_order_status_sms(
-        to_number=phone_number,
-        order_id=db_order.id,
-        status="pending",
-        order_number=order_number
-    )
+    # TEMPORARILY DISABLED FOR TESTING
+    # sms_service.send_order_status_sms(
+    #     to_number="+919342044743",  # TEMPORARILY HARDCODED FOR TESTING
+    #     order_id=db_order.id,
+    #     status="pending",
+    #     order_number=order_number
+    # )
     
-    return db_order
+    # Convert to response model to ensure proper serialization
+    response_data = build_order_response_data(db_order)
+    return OrderResponse.model_validate(response_data)
 
 @router.get("/", response_model=OrderListResponse)
 async def get_user_orders(
@@ -162,7 +192,7 @@ async def get_user_orders(
     orders = query.order_by(Order.created_at.desc()).offset((page - 1) * size).limit(size).all()
     
     return OrderListResponse(
-        orders=orders,
+        orders=[OrderResponse.model_validate(build_order_response_data(order)) for order in orders],
         total=total,
         page=page,
         size=size
@@ -189,7 +219,8 @@ async def get_order_details(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     
-    return order
+    response_data = build_order_response_data(order)
+    return OrderResponse.model_validate(response_data)
 
 @router.patch("/{order_id}", response_model=OrderResponse)
 async def update_order(
@@ -230,13 +261,14 @@ async def update_order(
     # Send SMS notification if status changed
     if order_update.status and order_update.status != old_status:
         sms_service.send_order_status_sms(
-            to_number=phone_number,
+            to_number="+919342044743",  # TEMPORARILY HARDCODED FOR TESTING
             order_id=order.id,
             status=order_update.status.value,
             order_number=order.order_number
         )
     
-    return order
+    response_data = build_order_response_data(order)
+    return OrderResponse.model_validate(response_data)
 
 @router.post("/{order_id}/cancel", response_model=OrderResponse)
 async def cancel_order(
@@ -281,10 +313,11 @@ async def cancel_order(
     
     # Send cancellation SMS
     sms_service.send_order_status_sms(
-        to_number=phone_number,
+        to_number="+919342044743",  # TEMPORARILY HARDCODED FOR TESTING
         order_id=order.id,
         status="cancelled",
         order_number=order.order_number
     )
     
-    return order
+    response_data = build_order_response_data(order)
+    return OrderResponse.model_validate(response_data)

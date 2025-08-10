@@ -11,7 +11,7 @@ import security
 from security import TokenData
 
 # This is the same scheme we defined in the router before
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/verify-otp")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/verify-otp")
 
 def get_current_active_user(
     token: str = Depends(oauth2_scheme), 

@@ -39,7 +39,7 @@ class AddressUpdate(AddressBase):
     pass
 
 class AddressResponse(AddressBase):
-    id: str
+    id: int
     owner_id: int
     created_at: datetime
     updated_at: datetime

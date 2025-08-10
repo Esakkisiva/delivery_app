@@ -7,7 +7,7 @@ from schemas.auth_schemas import OTPRequest, OTPVerifyRequest, AuthResponse
 from database import get_db
 from sms_service import sms_service
 from config import settings
-import security
+from security import create_access_token, create_refresh_token
 
 router = APIRouter(
     prefix="/api/auth",
@@ -89,8 +89,8 @@ async def verify_otp(request: OTPVerifyRequest, db: Session = Depends(get_db)):
     db.commit()
     
     # Generate JWT tokens
-    access_token = security.create_access_token(data={"sub": str(user.id)})
-    refresh_token = security.create_refresh_token(data={"sub": str(user.id)})
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
     
     return AuthResponse(
         access_token=access_token,
@@ -111,11 +111,12 @@ async def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)
     )
     
     try:
-        payload = security.jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        from jose import jwt, JWTError
+        payload = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except security.JWTError:
+    except JWTError:
         raise credentials_exception
     
     user = db.query(User).filter(User.id == int(user_id)).first()

@@ -24,7 +24,7 @@ def create_address_for_current_user(
     user = db.query(User).filter(User.phone_number == phone_number).first()
     
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Authenticated user not found in database")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     db_address = Address(**address.model_dump(), owner_id=user.id)
     db.add(db_address)
@@ -50,7 +50,7 @@ def get_addresses_for_current_user(
 
 @router.put("/{address_id}", response_model=AddressResponse)
 def update_user_address(
-    address_id: str,
+    address_id: int,
     update_data: AddressUpdate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(auth.get_current_user)
@@ -75,7 +75,7 @@ def update_user_address(
 
 @router.delete("/{address_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user_address(
-    address_id: str,
+    address_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(auth.get_current_user)
 ):

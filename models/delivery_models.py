@@ -41,4 +41,4 @@ class DeliveryAgent(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    orders = relationship("Order", back_populates="delivery_agent")
+    # orders = relationship("Order", back_populates="delivery_agent")  # Commented out to avoid circular dependency

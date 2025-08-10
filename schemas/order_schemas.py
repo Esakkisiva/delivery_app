@@ -30,7 +30,7 @@ class OrderItemResponse(BaseModel):
 
 # Order Schemas
 class OrderCreate(BaseModel):
-    delivery_address_id: str = Field(..., description="ID of the delivery address")
+    delivery_address_id: int = Field(..., description="ID of the delivery address")
     delivery_instructions: Optional[str] = Field(None, description="Special delivery instructions")
     order_items: List[OrderItemCreate] = Field(..., min_items=1, description="List of items to order")
 
@@ -43,7 +43,7 @@ class OrderResponse(BaseModel):
     id: str
     order_number: str
     customer_id: int
-    delivery_address_id: str
+    delivery_address_id: int
     delivery_agent_id: Optional[int]
     status: OrderStatusEnum
     total_amount: float

@@ -18,9 +18,6 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    addresses = relationship("Address", back_populates="owner")
-    orders = relationship("Order", back_populates="customer")
-
 class OTP(Base):
     __tablename__ = "otps"
     

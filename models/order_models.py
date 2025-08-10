@@ -29,7 +29,7 @@ class Order(Base):
     
     # Relationships to existing models
     customer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    delivery_address_id = Column(String(36), ForeignKey("addresses.id"), nullable=False)
+    delivery_address_id = Column(Integer, ForeignKey("addresses.id"), nullable=False)
     delivery_agent_id = Column(Integer, ForeignKey("delivery_agents.id"), nullable=True)
     
     # Order details
@@ -49,9 +49,9 @@ class Order(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    customer = relationship("User", back_populates="orders")
+    # customer = relationship("User", back_populates="orders")  # Commented out to avoid circular dependency
     delivery_address = relationship("Address")
-    delivery_agent = relationship("DeliveryAgent", back_populates="orders")
+    delivery_agent = relationship("DeliveryAgent")  # Removed back_populates to avoid circular dependency
     order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 class OrderItem(Base):
